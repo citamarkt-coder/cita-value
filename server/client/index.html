@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cita Value – Vollständige App</title>
+  <meta name="description" content="Cita Value: Login, Abo, Projekte, Uploads und bankfähige Wertermittlungen.">
+  <style>
+    :root{--brand:#17419B;--accent:#0D9488;--bg:#F7FAFC;--border:#e2e8f0;--muted:#64748b;--text:#0f172a}
+    *{box-sizing:border-box} html,body,#root{height:100%} body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    .header{position:sticky;top:0;z-index:30;background:#ffffffcc;backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+    .row{display:flex;gap:8px;align-items:center}.space{justify-content:space-between}
+    .btn{border:1px solid var(--brand);background:linear-gradient(135deg,var(--brand),var(--accent));color:#fff;border-radius:12px;padding:8px 12px;cursor:pointer}
+    .btn--ghost{border:1px solid var(--border);background:#fff;color:var(--brand)}
+    .btn--sm{font-size:12px;padding:6px 10px;border-radius:10px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px}
+    .title{margin:0 0 12px 0;color:var(--brand);font-weight:800}
+    .muted{color:var(--muted)}
+    .input, .select, .textarea{width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 12px;outline:none}
+    .textarea{min-height:88px}
+    .grid{display:grid;gap:16px}.cols-2{grid-template-columns:1fr}.cols-3{grid-template-columns:1fr}
+    @media(min-width:900px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:1fr 1fr 1fr}}
+    .kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .box{border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff}
+    .ampel{display:flex;gap:8px;align-items:center}.dot{width:14px;height:14px;border-radius:9999px;background:#e5e7eb}.g{background:#16a34a}.y{background:#f59e0b}.r{background:#dc2626}
+    @media print{.header,.no-print{display:none !important}.card{box-shadow:none;border:none}.main{padding:0}}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <script>
+    const h=React.createElement; const {useState,useEffect,useMemo}=React;
+    const API='';
+
+    const BRAND={primary:'#17419B',secondary:'#0D9488'};
+
+    function AppShell({children,onNav,user,sub}){
+      return h('div',{},[
+        h('header',{className:'header'}, h('div',{className:'row space',style:{maxWidth:1200,margin:'0 auto',padding:'12px 16px'}},[
+          h('div',{style:{fontWeight:800,color:BRAND.primary,cursor:'pointer'},onClick:()=>onNav('/')},'Cita Value'),
+          h('nav',{className:'row'},[
+            h('a',{style:{cursor:'pointer',color:'#334155'},onClick:()=>onNav('/')},'Start'),
+            h('a',{style:{cursor:'pointer',color:'#334155'},onClick:()=>onNav('/pricing')},'Pakete'),
+            h('a',{style:{cursor:'pointer',color:'#334155'},onClick:()=>onNav('/app')},'Dashboard')
+          ]),
+          h('div',{}, user ? h('span',{className:'muted'},user.email) : null )
+        ])),
+        h('main',{className:'main',style:{maxWidth:1200,margin:'18px auto',padding:'0 16px'}},children),
+        h('footer',{style:{textAlign:'center',padding:'24px',color:'#64748b',fontSize:12}}, '© '+new Date().getFullYear()+' Cita Value · Demo ohne Server-Side Rendering – DSGVO in Produktion via EU-Backend')
+      ]);
+    }
+
+    function fetchJSON(path,opts={}){
+      const token = localStorage.getItem('jwt')||'';
+      const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+      if(token) headers['Authorization']='Bearer '+token;
+      return fetch(API+path, Object.assign({}, opts, { headers })).then(r=>r.json());
+    }
+    async function fetchBlob(path){
+      const token = localStorage.getItem('jwt')||'';
+      const headers = {}; if(token) headers['Authorization']='Bearer '+token;
+      const r = await fetch(API+path,{headers}); const b = await r.blob(); return URL.createObjectURL(b);
+    }
+
+    function Hero({onCta}){
+      return h('section',{},[
+        h('div',{className:'card'},[
+          h('h1',{className:'title',style:{fontSize:28}},'Bankfähige Wertermittlungen – schneller, schlauer, schöner.'),
+          h('p',{className:'muted'},'Normkonforme Wertermittlung mit KI‑Assistent, Uploads, Preisberater und Exporten – alles responsive und einfach.'),
+          h('div',{className:'row'},[ h('button',{className:'btn',onClick:onCta},'Kostenlos starten') ])
+        ])
+      ]);
+    }
+
+    function AuthPanel({onAuth,me}){
+      const [isLogin,setIsLogin]=useState(true);
+      const [email,setEmail]=useState('');
+      const [pass,setPass]=useState('');
+      async function submit(){
+        const path = isLogin?'/api/auth/login':'/api/auth/register';
+        const j = await fetchJSON(path,{method:'POST',body:JSON.stringify({email,password:pass})});
+        if(j.token){ localStorage.setItem('jwt', j.token); onAuth(); } else { alert(JSON.stringify(j)); }
+      }
+      return h('div',{className:'card'},[
+        h('h3',{className:'title'}, isLogin?'Anmelden':'Registrieren'),
+        h('div',{className:'grid cols-2'},[
+          h('div',{},[ h('div',{},'E‑Mail'), h('input',{className:'input',value:email,onChange:e=>setEmail(e.target.value)}) ]),
+          h('div',{},[ h('div',{},'Passwort'), h('input',{className:'input',type:'password',value:pass,onChange:e=>setPass(e.target.value)}) ])
+        ]),
+        h('div',{className:'row',style:{marginTop:8}},[ h('button',{className:'btn',onClick:submit}, isLogin?'Login':'Registrieren'), h('button',{className:'btn btn--ghost',onClick:()=>setIsLogin(!isLogin)}, isLogin?'Ich brauche ein Konto':'Ich habe ein Konto') ]),
+        me?.user ? h('div',{className:'muted',style:{marginTop:8}},'Angemeldet als '+me.user.email) : null
+      ]);
+    }
+
+    function Pricing(){
+      const [cfg,setCfg]=useState({prices:{}});
+      useEffect(()=>{ fetchJSON('/api/public/config').then(setCfg); },[]);
+      async function checkout(priceId){
+        const j = await fetchJSON('/api/billing/checkout',{method:'POST',body:JSON.stringify({price_id:priceId})});
+        if(j.url) window.location.href=j.url; else alert(JSON.stringify(j));
+      }
+      return h('section',{},[
+        h('h2',{className:'title'},'Pakete'),
+        h('div',{className:'grid cols-3'},[
+          h('div',{className:'card'},[ h('b',{},'Starter – 19 €'), h('p',{className:'muted'},'Schnellbewertung inkl.'), h('button',{className:'btn',onClick:()=>checkout(cfg.prices.starter)},'Starter wählen') ]),
+          h('div',{className:'card'},[ h('b',{},'Pro – 59 €'), h('p',{className:'muted'},'Kurzbewertung + KI'), h('button',{className:'btn',onClick:()=>checkout(cfg.prices.pro)},'Pro wählen') ]),
+          h('div',{className:'card'},[ h('b',{},'Expert – 129 €'), h('p',{className:'muted'},'Verkehrswert & Team'), h('button',{className:'btn',onClick:()=>checkout(cfg.prices.expert)},'Expert wählen') ]),
+        ]),
+        h('div',{className:'card',style:{marginTop:12}},[ h('h3',{className:'title'},'Verwaltung'), h('button',{className:'btn',onClick:async()=>{ const j=await fetchJSON('/api/billing/portal',{method:'POST'}); if(j.url) window.location.href=j.url; else alert(JSON.stringify(j)); }},'Kundenportal öffnen') ])
+      ]);
+    }
+
+    function Uploads(){
+      const [items,setItems]=useState([]);
+      const [preview,setPreview]=useState(null);
+      async function refresh(){ const j=await fetchJSON('/api/uploads'); setItems(j); }
+      useEffect(()=>{ refresh(); },[]);
+      async function onFile(e){
+        const f = e.target.files[0]; if(!f) return;
+        const fd = new FormData(); fd.append('file', f);
+        const token = localStorage.getItem('jwt')||'';
+        const r = await fetch('/api/uploads', { method:'POST', headers: token?{ 'Authorization':'Bearer '+token }:undefined, body: fd });
+        const j = await r.json(); if(j.id){ refresh(); } else { alert(JSON.stringify(j)); }
+        e.target.value='';
+      }
+      async function dl(id, name){
+        const url = await fetchBlob('/api/uploads/'+id+'/download');
+        const a=document.createElement('a'); a.href=url; a.download=name||'datei'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+      }
+      async function show(id){ const url = await fetchBlob('/api/uploads/'+id+'/download'); setPreview(url); }
+      async function del(id){ if(!confirm('Datei löschen?')) return; const j=await fetchJSON('/api/uploads/'+id,{method:'DELETE'}); refresh(); }
+      return h('section',{},[
+        h('h3',{className:'title'},'Unterlagen'),
+        h('label',{className:'btn btn--ghost',style:{display:'inline-block'}},[ h('input',{type:'file',style:{display:'none'},onChange:onFile}), 'Datei hochladen' ]),
+        h('div',{className:'grid cols-3',style:{marginTop:12}}, items.map(i=> h('div',{className:'card'},[
+          h('div',{}, i.original_name ),
+          h('div',{className:'muted',style:{fontSize:12}}, (i.mime_type||'')+' · '+Math.round((i.size||0)/1024)+' KB'),
+          h('div',{className:'row'},[
+            h('button',{className:'btn btn--ghost btn--sm',onClick:()=>show(i.id)},'Ansehen'),
+            h('button',{className:'btn btn--ghost btn--sm',onClick:()=>dl(i.id, i.original_name)},'Download'),
+            h('button',{className:'btn btn--ghost btn--sm',onClick:()=>del(i.id)},'Löschen')
+          ])
+        ]))),
+        preview ? h('div',{className:'card',style:{marginTop:12}},[ h('div',{className:'row space'},[h('b',{},'Vorschau'), h('button',{className:'btn btn--ghost btn--sm',onClick:()=>{ URL.revokeObjectURL(preview); setPreview(null); }},'Schließen') ]), h('iframe',{src:preview,style:{width:'100%',height:'320px',border:'1px solid var(--border)',borderRadius:12}}) ]) : null
+      ]);
+    }
+
+    function Projects(){
+      const [rows,setRows]=useState([]);
+      const [open,setOpen]=useState(null);
+      async function refresh(){ const j=await fetchJSON('/api/projects'); setRows(j); }
+      useEffect(()=>{ refresh(); },[]);
+      async function create(type){ const j=await fetchJSON('/api/projects',{method:'POST',body:JSON.stringify({type})}); setOpen(j); refresh(); }
+      async function load(id){ const j=await fetchJSON('/api/projects/'+id); setOpen(j); }
+      async function save(){ const j=await fetchJSON('/api/projects/'+open.id,{method:'PUT',body:JSON.stringify({title:open.title,data:open.data})}); setOpen(j); refresh(); alert('Gespeichert'); }
+      async function remove(id){ if(!confirm('Löschen?')) return; await fetchJSON('/api/projects/'+id,{method:'DELETE'}); refresh(); if(open?.id===id) setOpen(null); }
+      return h('section',{},[
+        !open && h('div',{},[
+          h('div',{className:'row',style:{marginBottom:8}},[ h('button',{className:'btn',onClick:()=>create('kurz')},'Neue Kurzbewertung'), h('button',{className:'btn btn--ghost',onClick:()=>create('verkehr')},'Neue Verkehrswertermittlung') ]),
+          h('div',{className:'grid cols-3'}, rows.map(r=> h('div',{className:'card'},[ h('div',{className:'title'}, r.title ), h('div',{className:'muted',style:{fontSize:12}}, new Date(r.updated_at).toLocaleString() ), h('div',{className:'row'},[ h('button',{className:'btn btn--ghost btn--sm',onClick:()=>load(r.id)},'Öffnen'), h('button',{className:'btn btn--ghost btn--sm',onClick:()=>remove(r.id)},'Löschen') ]) ])) )
+        ]),
+        open && h(Editor,{proj:open,setProj:setOpen,onSave:save,onBack:()=>setOpen(null)})
+      ]);
+    }
+
+    function Editor({proj,setProj,onSave,onBack}){
+      const data = proj.data || {};
+      function set(path,val){
+        const copy = JSON.parse(JSON.stringify(proj));
+        let o=copy; const ks=path.split('.'); for(let i=0;i<ks.length-1;i++) o=o[ks[i]]; o[ks.at(-1)] = val;
+        setProj(copy);
+      }
+      function euro(v){ return Number(v||0).toLocaleString(undefined,{maximumFractionDigits:0}); }
+      function num(v){ const n=parseFloat(String(v??'').replace(/[^0-9.,-]/g,'').replace(',','.')); return isNaN(n)?0:n; }
+      const wfl = num(data.flaechen?.wfl), mN = num(data.markt?.nachhaltigMiete), bwk=(num(data.markt?.bwkQuote)||25)/100, lz=(num(data.markt?.liegenschaftszins)||4)/100;
+      const NOI = wfl*mN*12*(1-bwk); const eCalc = lz>0? NOI/lz : 0;
+      const fmin=num(data.markt?.faktorMin)||18, fmax=num(data.markt?.faktorMax)||25, bandMin=wfl*mN*12*fmin, bandMax=wfl*mN*12*fmax;
+      let meaQ=0; const mm=String(data.weg?.mea||'').match(/(\d+)\s*\/\s*(\d+)/); if(mm){const a=parseFloat(mm[1]);const b=parseFloat(mm[2]); if(b>0) meaQ=Math.min(1,Math.max(0,a/b));}
+      const rueck = num(data.weg?.ruecklage), mass = num(data.weg?.massnahmenKosten), sonder=Math.max(0,mass-rueck), anteil=Math.round(sonder*meaQ);
+      const suggestion = Math.max(0,(num(data.werte?.vergleichswert)||eCalc) - anteil);
+      const qm = wfl>0? suggestion/wfl : 0; const qmin=wfl>0?bandMin/wfl:0, qmax=wfl>0?bandMax/wfl:0;
+      let ampel='grau'; if(qm>0){ if(qm>=qmin*0.95 && qm<=qmax*1.05) ampel='gruen'; else if(qm>=qmin*0.85 && qm<=qmax*1.15) ampel='gelb'; else ampel='rot'; }
+      function setEnd(){ set('data.werte.endwert', String(suggestion)); }
+
+      function downloadHTML(){
+        const css=document.querySelector('style').innerHTML;
+        const content=document.getElementById('print-area').outerHTML;
+        const html='<!doctype html><html><head><meta charset="utf-8"><style>'+css+'</style><title>'+ (data.meta?.projektName||'Gutachten') +'</title></head><body>'+content+'</body></html>';
+        const blob=new Blob([html],{type:'text/html'});
+        const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=(data.meta?.aktenzeichen||'gutachten')+'.html'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500);
+      }
+      function printPDF(){
+        const css='@media print { body * { visibility:hidden } #print-area, #print-area * { visibility:visible } #print-area { position:absolute; left:0; top:0; width:100% } }';
+        const s=document.createElement('style'); s.innerHTML=css; document.head.appendChild(s); window.print(); setTimeout(()=>s.remove(),800);
+      }
+
+      return h('section',{},[
+        h('div',{className:'row space'},[ h('h3',{className:'title',style:{margin:0}}, proj.title ), h('div',{className:'row'},[ h('button',{className:'btn btn--ghost',onClick:onBack},'Zurück'), h('button',{className:'btn btn--ghost',onClick:onSave},'Speichern'), h('button',{className:'btn btn--ghost',onClick:downloadHTML},'Download HTML'), h('button',{className:'btn',onClick:printPDF},'Drucken/PDF') ]) ]),
+        h('div',{className:'grid cols-2'},[
+          h('div',{},[
+            h('div',{className:'card'},[ h('h4',{className:'title'},'Meta & Auftrag'),
+              h('div',{className:'grid cols-2'},[
+                h('div',{},[h('div',{},'Projekt'), h('input',{className:'input',value:data.meta?.projektName||'',onChange:e=>set('data.meta.projektName', e.target.value)})]),
+                h('div',{},[h('div',{},'Aktenzeichen'), h('input',{className:'input',value:data.meta?.aktenzeichen||'',onChange:e=>set('data.meta.aktenzeichen', e.target.value)})]),
+                h('div',{},[h('div',{},'Gutachter'), h('input',{className:'input',value:data.meta?.gutachter||'',onChange:e=>set('data.meta.gutachter', e.target.value)})]),
+                h('div',{},[h('div',{},'Stichtag'), h('input',{className:'input',type:'date',value:data.meta?.stichtag||'',onChange:e=>set('data.meta.stichtag', e.target.value)})])
+              ])
+            ]),
+            h('div',{className:'card'},[ h('h4',{className:'title'},'Objekt & Lage'),
+              h('div',{className:'grid cols-2'},[
+                h('div',{},[h('div',{},'Adresse'), h('input',{className:'input',value:data.objekt?.adresse||'',onChange:e=>set('data.objekt.adresse', e.target.value)})]),
+                h('div',{},[h('div',{},'Baujahr'), h('input',{className:'input',value:data.objekt?.baujahr||'',onChange:e=>set('data.objekt.baujahr', e.target.value)})]),
+                h('div',{className:'grid cols-2'},[h('div',{},[h('div',{},'WoFl m²'), h('input',{className:'input',value:data.flaechen?.wfl||'',onChange:e=>set('data.flaechen.wfl', e.target.value)})]), h('div',{},[h('div',{},'Zimmer'), h('input',{className:'input',value:data.flaechen?.zimmer||'',onChange:e=>set('data.flaechen.zimmer', e.target.value)})]) ])
+              ])
+            ]),
+            h('div',{className:'card'},[ h('h4',{className:'title'},'Markt & Mieten'),
+              h('div',{className:'grid cols-2'},[
+                h('div',{},[h('div',{},'Nachhaltige Miete €/m²'), h('input',{className:'input',value:data.markt?.nachhaltigMiete||'',onChange:e=>set('data.markt.nachhaltigMiete', e.target.value)})]),
+                h('div',{},[h('div',{},'Liegenschaftszins %'), h('input',{className:'input',value:data.markt?.liegenschaftszins||'',onChange:e=>set('data.markt.liegenschaftszins', e.target.value)})]),
+                h('div',{},[h('div',{},'BWK %'), h('input',{className:'input',value:data.markt?.bwkQuote||'25',onChange:e=>set('data.markt.bwkQuote', e.target.value)})]),
+                h('div',{className:'grid cols-2'},[h('div',{},[h('div',{},'Faktor min'), h('input',{className:'input',value:data.markt?.faktorMin||'18',onChange:e=>set('data.markt.faktorMin', e.target.value)})]), h('div',{},[h('div',{},'Faktor max'), h('input',{className:'input',value:data.markt?.faktorMax||'25',onChange:e=>set('data.markt.faktorMax', e.target.value)})]) ])
+              ])
+            ]),
+            h('div',{className:'card'},[ h('h4',{className:'title'},'Werte'),
+              h('div',{className:'grid cols-2'},[
+                h('div',{},[h('div',{},'Vergleichswert €'), h('input',{className:'input',value:data.werte?.vergleichswert||'',onChange:e=>set('data.werte.vergleichswert', e.target.value)})]),
+                h('div',{},[h('div',{},'Ergebnis €'), h('input',{className:'input',value:data.werte?.endwert||'',onChange:e=>set('data.werte.endwert', e.target.value)})])
+              ]),
+              h('button',{className:'btn btn--ghost',onClick:setEnd},'Vorschlag übernehmen')
+            ])
+          ]),
+          h('div',{id:'print-area'},[
+            h('div',{className:'card'},[ h('h4',{className:'title'},'Deckblatt & Summary'),
+              h('div',{},[ h('div',{},[h('b',{},'Objekt: '), data.objekt?.adresse||'[Adresse]']), h('div',{},[h('b',{},'Stichtag: '), data.meta?.stichtag||'[Datum]']) ]),
+              h('div',{className:'kpi',style:{marginTop:8}},[
+                h('div',{className:'box'},[h('b',{},'NOI/Jahr'),h('div',{},'€ '+euro(NOI))]),
+                h('div',{className:'box'},[h('b',{},'Ertragswert calc'),h('div',{},'€ '+euro(eCalc))]),
+                h('div',{className:'box'},[h('b',{},'Band min'),h('div',{},'€ '+euro(bandMin))]),
+                h('div',{className:'box'},[h('b',{},'Band max'),h('div',{},'€ '+euro(bandMax))]),
+                h('div',{className:'box'},[h('b',{},'WEG‑Anteil'),h('div',{},'€ '+euro(anteil))]),
+                h('div',{className:'box'},[h('b',{},'Vorschlag'),h('div',{style:{color:'#0D9488',fontWeight:800}},'€ '+euro(suggestion))])
+              ]),
+              h('div',{className:'row',style:{gap:8,marginTop:8}},[ h('div',{},[h('b',{},'€ / m²: '),'€ '+euro(Math.round(qm))]), h('div',{className:'ampel'},[h('span',{className:'dot '+(ampel==='gruen'?'g':'')}), h('span',{className:'dot '+(ampel==='gelb'?'y':'')}), h('span',{className:'dot '+(ampel==='rot'?'r':'')})]) ])
+            ])
+          ])
+        ])
+      ]);
+    }
+
+    function Dashboard({onLogout}){
+      const [tab,setTab]=useState('projects');
+      return h('section',{},[
+        h('div',{className:'row',style:{flexWrap:'wrap'}},[
+          ...['projects','uploads','pricing'].map(id=>h('button',{key:id,className:'btn '+(id==='projects'?'':'btn--ghost'),onClick:()=>setTab(id)}, id==='projects'?'Projekte': id==='uploads'?'Unterlagen':'Abo')),
+          h('button',{className:'btn btn--ghost',onClick:onLogout,style:{marginLeft:'auto'}},'Abmelden')
+        ]),
+        tab==='projects' && h(Projects,{}),
+        tab==='uploads' && h(Uploads,{}),
+        tab==='pricing' && h(Pricing,{})
+      ]);
+    }
+
+    function App(){
+      const [route,setRoute]=useState(window.location.hash.replace('#','')||'/');
+      const [me,setMe]=useState(null);
+      useEffect(()=>{ const onH=()=>setRoute(window.location.hash.replace('#','')||'/'); window.addEventListener('hashchange',onH); return ()=>window.removeEventListener('hashchange',onH); },[]);
+      function nav(to){ window.location.hash=to; }
+      async function refreshMe(){ const j=await fetchJSON('/api/auth/me'); setMe(j); }
+      useEffect(()=>{ refreshMe(); },[]);
+      function logout(){ localStorage.removeItem('jwt'); refreshMe(); nav('/'); }
+
+      return h(AppShell,{onNav:nav,user:me?.user,sub:me?.subscription},[
+        route==='/' && h('div',{},[ h(Hero,{onCta:()=>nav('/pricing')}), h(AuthPanel,{onAuth:()=>{refreshMe(); nav('/app');}, me}) ]),
+        route==='/pricing' && h(Pricing,{}),
+        route==='/app' && ( me?.user ? h(Dashboard,{onLogout:logout}) : h('div',{className:'card'},[h('h3',{className:'title'},'Bitte anmelden'), h('p',{className:'muted'},'Du benötigst ein Konto, um das Dashboard zu nutzen.'), h('button',{className:'btn',onClick:()=>nav('/')},'Zur Anmeldung') ]) )
+      ]);
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+  </script>
+</body>
+</html>
